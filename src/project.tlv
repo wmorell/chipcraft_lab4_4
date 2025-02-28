@@ -52,19 +52,23 @@
    // |                |
    // ==================
    
-   $bad_input = *ui_in[0];
-   $illegal_op = *ui_in[1];
-   $overflow = *ui_in[2];
-   $divide_by_zero = *ui_in[3];
+   
+   
+   
+   
    
    
    // Note that pipesignals assigned here can be found under /fpga_pins/fpga (if in_fpga is set to 1 above).
    |error
       @1 
+         $bad_input = *ui_in[0];
+         $illegal_op = *ui_in[1];
          $error1 = $bad_input || $illegal_op;
       @3
+         $overflow = *ui_in[2];
          $error2 = $error1 || $overflow;
       @6
+         $divide_by_zero = *ui_in[3];
          $error3 = $error2 || $divide_by_zero;
          *uo_out[0] = $error3;
    
