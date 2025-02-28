@@ -66,8 +66,8 @@
          $error2 = $error1 || $overflow;
       @6
          $error3 = $error2 || $divide_by_zero;
+         *uo_out[0] = $error3;
    
-   *uo_out[0] = $error3;
    
    // Connect Tiny Tapeout outputs. Note that uio_ outputs are not available in the Tiny-Tapeout-3-based FPGA boards.
    *uo_out[7:1] = '0;
