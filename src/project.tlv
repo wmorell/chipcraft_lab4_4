@@ -20,7 +20,7 @@
           ///   1: Provide synchronization and debouncing on all input signals.
           ///   0: Don't provide synchronization and debouncing.
           ///   m5_if_defined_as(MAKERCHIP, 1, 0, 1): Debounce unless in Makerchip.
-   var(in_fpga, 0)   /// For Makerchip development: 1 to include the demo board in VIZ (in which case, logic will be under /fpga_pins/fpga).
+   var(in_fpga, 1)   /// For Makerchip development: 1 to include the demo board in VIZ (in which case, logic will be under /fpga_pins/fpga).
    
 
    // ======================
@@ -54,6 +54,9 @@
    
    $bad_input = *ui_in[0];
    $illegal_op = *ui_in[1];
+   $overflow = *ui_in[2];
+   $divide_by_zero = *ui_in[3];
+   
    
    // Note that pipesignals assigned here can be found under /fpga_pins/fpga (if in_fpga is set to 1 above).
    |error
@@ -64,10 +67,10 @@
       @6
          $error3 = $error2 || $divide_by_zero;
    
-   
+   *uo_out[0] = $error3;
    
    // Connect Tiny Tapeout outputs. Note that uio_ outputs are not available in the Tiny-Tapeout-3-based FPGA boards.
-   *uo_out = 8'b0;
+   *uo_out[7:1] = '0;
    *uio_out = 8'b0;
    *uio_oe = 8'b0;
 
