@@ -2,12 +2,12 @@
 \m5
    use(m5-1.0)
    
-   
-   // ########################################################
-   // #                                                      #
-   // #  Empty template for Tiny Tapeout Makerchip Projects  #
-   // #                                                      #
-   // ########################################################
+
+   // #################################################################
+   // #                                                               #
+   // #  Starting-Point Code for MEST Course Tiny Tapeout Calculator  #
+   // #                                                               #
+   // #################################################################
    
    // ========
    // Settings
@@ -41,40 +41,104 @@
    
    // Tiny Tapeout Lab.
    m4_include_lib(https:/['']/raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/5744600215af09224b7235479be84c30c6e50cb7/tlv_lib/tiny_tapeout_lib.tlv)
+   // Calculator VIZ.
+   m4_include_lib(https:/['']/raw.githubusercontent.com/efabless/chipcraft---mest-course/main/tlv_lib/calculator_shell_lib.tlv)
 
 
 
-\TLV my_design()
+\TLV calc()
    
-   // ==================
-   // |                |
-   // | YOUR CODE HERE |
-   // |                |
-   // ==================
+   // ==========
+   // User Logic
+   // ==========
    
-   
-   
-   
-   
-   
-   
-   // Note that pipesignals assigned here can be found under /fpga_pins/fpga (if in_fpga is set to 1 above).
-   |error
-      @1 
-         $bad_input = *ui_in[0];
-         $illegal_op = *ui_in[1];
-         $error1 = $bad_input || $illegal_op;
-      @3
-         $overflow = *ui_in[2];
-         $error2 = $error1 || $overflow;
-      @6
-         $divide_by_zero = *ui_in[3];
-         $error3 = $error2 || $divide_by_zero;
-         *uo_out[0] = $error3;
-   
+   |calc
+      @0
+         $reset = *reset;
+         
+         // Board's switch inputs
+         $op[2:0] = *ui_in[6:4]; //actual op vector
+         //$op[1:0] = *ui_in[5:4] +1; //mem test vector
+         $val2[7:0] = {4'b0, *ui_in[3:0]};
+         $equals_in = *ui_in[7];
+         
+      @1
+         // Calculator result value ($out) becomes first operand ($val1).
+         $val1[7:0] = >>2$out;
+         
+         // Perform a valid computation when "=" button is pressed.
+         $valid = $reset ? 1'b0 :
+                           $equals_in && ! >>1$equals_in;
+         
+         ?$valid
+            // Calculate (all possible operations).
+            $sum[7:0] = $val1 + $val2;
+            $diff[7:0] = $val1 - $val2;
+            $prod[7:0] = $val1 * $val2;
+            $quot[7:0] = $val1 / $val2;
+         
+      @2 
+         // Select the result value, resetting to 0, and retaining if no calculation.
+         
+         $out[7:0] = $reset ? 8'b0 :
+                     ! $valid ? >>1$out :
+                     ($op[2:0] == 3'b000) ?   $sum  :
+                     ($op[2:0] == 3'b001) ?   $diff :
+                     ($op[2:0] == 3'b010) ?   $prod :
+                     ($op[2:0] == 3'b011) ?   $quot :
+                     ($op[2:0] == 3'b100) ? >>2$mem : //recall
+                     ($op[2:0] == 3'b101) ? >>1$out : //store
+                                            >>1$out ; //nops
+         
+         /*
+         //mem debug version
+         $out[7:0] = $reset ? 8'b0 :
+                     ! $valid ? >>1$out :
+                     ($op[1:0] == 2'b00) ?   $sum  :
+                     ($op[1:0] == 2'b01) ?   $diff :
+                     ($op[1:0] == 2'b10) ? >>2$mem : //recall
+                     ($op[1:0] == 2'b11) ? >>1$out : //store
+                                            >>1$out ; //nops
+         */
+                                          
+         $mem[7:0] = $reset ? 8'b0 :
+                     ! $valid ? >>1$mem :
+                     ($op[2:0] == 3'b101) ? $val1 :
+                                            >>1$mem ;
+         /*
+         //mem debug version
+         $mem[7:0] = $reset ? 8'b0 :
+                     ! $valid ? >>1$mem :
+                     ($op[1:0] == 2'b11) ? $val1 :
+                                         >>1$mem ;
+         */
+         
+      @3   
+         // Display lower hex digit on 7-segment display.
+         $digit[3:0] = $out[3:0];
+         *uo_out =
+            $digit == 4'h0 ? 8'b00111111 :
+            $digit == 4'h1 ? 8'b00000110 :
+            $digit == 4'h2 ? 8'b01011011 :
+            $digit == 4'h3 ? 8'b01001111 :
+            $digit == 4'h4 ? 8'b01100110 :
+            $digit == 4'h5 ? 8'b01101101 :
+            $digit == 4'h6 ? 8'b01111101 :
+            $digit == 4'h7 ? 8'b00000111 :
+            $digit == 4'h8 ? 8'b01111111 :
+            $digit == 4'h9 ? 8'b01101111 :
+            $digit == 4'hA ? 8'b01110111 :
+            $digit == 4'hB ? 8'b01111100 :
+            $digit == 4'hC ? 8'b00111001 :
+            $digit == 4'hD ? 8'b01011110 :
+            $digit == 4'hE ? 8'b01111001 :
+                             8'b01110001;
+         
+         
+   m5+cal_viz(@3, m5_if(m5_in_fpga, /fpga, /top))
    
    // Connect Tiny Tapeout outputs. Note that uio_ outputs are not available in the Tiny-Tapeout-3-based FPGA boards.
-   *uo_out[7:1] = '0;
+   //*uo_out = 8'b0;
    *uio_out = 8'b0;
    *uio_oe = 8'b0;
 
@@ -97,20 +161,6 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
    logic ena = 1'b0;
    logic rst_n = ! reset;
    
-   /*
-   // Or, to provide specific inputs at specific times ...
-   // BE SURE TO COMMENT THE ASSIGNMENT OF INPUTS ABOVE.
-   // BE SURE TO DRIVE THESE ON THE B-PHASE OF THE CLOCK (ODD STEPS).
-   // Driving on the rising clock edge creates a race with the clock that has unpredictable simulation behavior.
-   initial begin
-      #1  // Drive inputs on the B-phase.
-         ui_in = 8'h0;
-      #10 // Step 5 cycles, past reset.
-         ui_in = 8'hFF;
-      // ...etc.
-   end
-   */
-
    // Instantiate the Tiny Tapeout module.
    m5_my_design tt(.*);
    
@@ -145,26 +195,17 @@ module m5_user_module_name (
    // List all potentially-unused inputs to prevent warnings
    wire _unused = &{ena, clk, rst_n, 1'b0};
 
-// Set up the Tiny Tapeout lab environment.
 \TLV tt_lab()
    // Connect Tiny Tapeout I/Os to Virtual FPGA Lab.
    m5+tt_connections()
    // Instantiate the Virtual FPGA Lab.
-   m5+board(/top, /fpga, 7, $, , my_design)
+   m5+board(/top, /fpga, 7, $, , calc)
    // Label the switch inputs [0..7] (1..8 on the physical switch panel) (top-to-bottom).
-   m5+tt_input_labels_viz(['"UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED"'])
+   m5_if(m5_in_fpga, ['m5+tt_input_labels_viz(['"Value[0]", "Value[1]", "Value[2]", "Value[3]", "Op[0]", "Op[1]", "Op[2]", "="'])'])
 
 \TLV
    /* verilator lint_off UNOPTFLAT */
-   m5_if(m5_in_fpga, ['m5+tt_lab()'], ['m5+my_design()'])
-
-\SV_plus
-   
-   // ==========================================
-   // If you are using Verilog for your design,
-   // your Verilog logic goes here.
-   // Note, output assignments are in my_design.
-   // ==========================================
+   m5_if(m5_in_fpga, ['m5+tt_lab()'], ['m5+calc()'])
 
 \SV
 endmodule
